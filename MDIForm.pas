@@ -753,6 +753,22 @@ unit MDIForm;
    V5.5.8 17.08.21 Waveform Measurements: Peak-peak peak measurement option added
                    WCPMaxCHannels renamed MaxCHannels to allow modules to be swapped with WinEDR program
    V5.5.9 23.08.21 Tecella Triton X now supported.
+   V5.6.0 27.08.21 Triton control panel updated. Now shuts down A/D and D/A in RecordFrm as well as seal test
+   V5.6.1 14.09.21 Axoclamp 900A: debugging information now listed in status bar
+   V5.6.2 14.09.21 Axoclamp 900A: Demo mode turned off
+   V5.6.3 22.11.21 CED Micro 1401 Mk4 now supported. Bugs in ADCMEM and DIGTIM fixed by Greg Smith CED.
+                   Bug in Qanal.pas causing standard deviation to be underestimated when non-linear summation correction in used fixed.
+                   Corrected and uncorrected mean and s.d. now reported.
+                   Synaptic signal simulation module updated to correctly apply effects of non-linear summation of potentials
+                   so that simulated quantal content now correctly determined by qanal.pas
+   V5.6.4 24.11.21 CED support updated to make consistent with WinEDR version
+   V5.6.5 02.12.21 Stimulus Protocol Editor: Initial delay for user-entered waveforms no longer fixed at default of 10ms.
+                   All amplitude and time parameters now displayed with 6 figure precision to avoid rounding errors in D/A update interval.
+                   Speed of display of large user-defined waveforms increased by limiting display to a sample of 10000 points within waveform.
+   V5.6.6 09.12.21 Stimulus protocols: Sine wave element frequency increments can now be multiplicative as well as additive.
+                   CED 1401: Minimum D/A update rate of CED Power 1401s reduced from 100 microsec to 10 microsec
+   V5.6.7 29.01.22 Heka amplifiers; Amplifier # no longer forced to be at zero.
+   V5.6.8 21.02.22 Debug log for Digidata 1440 added
             =======================================================================}
 
 interface
@@ -1001,7 +1017,7 @@ begin
       Width := Screen.Width - Left - 20 ;
       Height := Screen.Height - Top - 50 ;
 
-      ProgVersion := 'V5.5.9';
+      ProgVersion := 'V5.6.8';
       Caption := 'WinWCP : Strathclyde Electrophysiology Software ' + ProgVersion ;
 
       { Get directory which contains WinWCP program }
@@ -1283,6 +1299,11 @@ begin
      Settings.RecPlot.Cursor2 := -1 ;
      Settings.RecPlot.Cursor3 := -1 ;
      Settings.RecPlot.Cursor4 := -1 ;
+
+     // Quantal analysis default settings
+     Settings.QuantalAnalysis.EvokedType := 'TEST' ;
+     Settings.QuantalAnalysis.MiniType := 'MINI' ;
+     Settings.QuantalAnalysis.Potentials := false ;
 
      { Set the file names and handles for all header blocks to null }
      RawFH.FileHandle := -1 ;
