@@ -108,6 +108,8 @@ unit Sealtest;
   04.08.21 .. Test pulse rate speeded up by only updating test pulse waveform when required and by changes to NIDAQMXunit to make
               ADCToMemory() more efficient.
   18.08.21 .. Display All Channels tick option added to display. Tecella Triton channels can now be selected individually for display
+  04.09.23 .. Seal test holding voltages no longer updated by default holding voltage when seal test form opened
+  30.10.23 .. Auto scale option now toggled by F6 key
 
   ==================================================}
 
@@ -498,8 +500,6 @@ begin
      edPulseWidth.Value := WCPFile.Settings.SealTest.PulseWidth ;
 
      { Update holding potential text boxes }
-
-
      edHoldingVoltage1.Value := WCPFile.Settings.SealTest.HoldingVoltage1 ;
      edHoldingVoltage2.Value := WCPFile.Settings.SealTest.HoldingVoltage2 ;
      edHoldingVoltage3.Value := WCPFile.Settings.SealTest.HoldingVoltage3 ;
@@ -616,7 +616,7 @@ procedure TSealTestFrm.TimerTimer(Sender: TObject);
   ---------------------}
 
 var
-   ch,T,t1,t2 : Integer ;
+   ch,T : Integer ;
    OldADCUnits : Array[0..MaxChannels-1] of String ;
    OldADCName : Array[0..MaxChannels-1] of String ;
    Changed : Boolean ;
@@ -794,7 +794,6 @@ procedure TSealTestFrm.SetClampMode ;
 var
     Units : String ;
     Scale : Single ;
-  ch: Integer;
 begin
 
     ClampMode[cbAmplifier.ItemIndex] := Amplifier.ClampMode[cbAmplifier.ItemIndex] ;
@@ -826,8 +825,8 @@ begin
     ChangeUnits( edPulseHeight3, Units, Scale ) ;
     ChangeUnits( edZapAmplitude, Units, Scale ) ;
 
-    // Use current default holding potential for selected AO channel
-    TestDAC := Min(Max(TestDAC,0),Main.SESLabIO.DACNumChannels-1) ;
+    // Use current default holding potential for selected AO channel (Removed 04.09.23)
+{    TestDAC := Min(Max(TestDAC,0),Main.SESLabIO.DACNumChannels-1) ;
     case WCPFile.Settings.SealTest.Use of
           2 : begin
              WCPFile.Settings.SealTest.HoldingVoltage2 :=  Main.SESLabIO.DACHoldingVoltage[TestDAC] ;
@@ -841,7 +840,7 @@ begin
               WCPFile.Settings.SealTest.HoldingVoltage1 :=  Main.SESLabIO.DACHoldingVoltage[TestDAC] ;
               edHoldingVoltage1.Value := WCPFile.Settings.SealTest.HoldingVoltage1 ;
               end ;
-          end ;
+          end ;  }
 
 
     end ;
@@ -851,8 +850,6 @@ procedure TSealTestFrm.ShowAmplifierChannels ;
 // Display channels for current selected amplifier, hide others
 // ------------------------------------------------------------
 var
-    iAmp : Integer ;
-    IsVisible : Boolean ;
   ch: Integer;
 begin
 {    for iAmp := 0 to cbAmplifier.Items.Count-1 do
@@ -1636,6 +1633,10 @@ begin
           { F5 selects holding voltage #3 }
           VK_F5 : begin
                rbUseHoldingVoltage3.checked := True ;
+               end ;
+          { F6 toggle auto scale option }
+          VK_F6 : begin
+               ckAutoScale.Checked := not ckAutoScale.Checked ;
                end ;
           end ;
      end;

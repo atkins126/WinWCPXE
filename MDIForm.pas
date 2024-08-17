@@ -783,7 +783,12 @@ unit MDIForm;
    V5.7.4 03.04.23 Digital clock support temporarily disabled for NI 6353 devices to determine
                    if there is a programming incompatibility with 32 bit Port0
    V5.7.5 06.07.23 DCLAMPUNIT Settings now saved and loaded correctly fixing bug introduced in V5.7.1
-
+   V5.7.6 04.09.23 Seal test holding voltages no longer updated by default holding voltage when seal test form opened
+   V5.7.7 30.10.23 Seal test auto scale option  now toggled by F6 key
+   V5.7.8 11.01.24 Rec.pas Protocol list editing issues fixed. Protocol addition disabled when no list exists. Protocols are now added to list in correct order
+   V5.7.9 23.06.24 Measure & Curve Fit Time of day variable added
+                   Curve fit results now stored in seperate .fit.fpd & .fit.csv data files
+   V5.8.0 05.08.24 Minor changes in ExportUnit and StimUnit to fix issues which arose when porting to Delphi 11.1 compiler
             =======================================================================}
 
 interface
@@ -1010,7 +1015,7 @@ var
    FileName : String ;
 begin
 
-      WCPFile.ProgVersion := 'V5.7.5';
+      WCPFile.ProgVersion := 'V5.8.0' ;
       Caption := 'WinWCP : Strathclyde Electrophysiology Software ' + WCPFile.ProgVersion ;
 
       Application.HelpFile := WCPFile.Settings.ProgDirectory + 'WinWCP.chm';

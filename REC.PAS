@@ -130,6 +130,8 @@ unit Rec;
   02.06.20 .. Record duration and sampling interval no longer change slightly when set repeatedly to same number
               Values saved to settings. No. of samples no longer limited to powers of 2.
   27.08.21 .. .StopSweep renamed .StopADCandDAC for compatibility with WinEDR
+  11.01.24 .. Protocol list editing issues fixed. Protocol addition disabled when no list exists. Protocols are now added to list in corre
+  21.06.24 .. Time of day at start of recording now obtained to millisecond precision using GetSystemTime()
 
   ==============================================================================}
 interface
@@ -232,14 +234,6 @@ type
     panProtocol: TPanel;
     rbSingleProtocol: TRadioButton;
     rbProtocolList: TRadioButton;
-    panProtocolList: TPanel;
-    Label17: TLabel;
-    cbProtocolList: TComboBox;
-    meProtocolList: TMemo;
-    bAddProtocolToList: TButton;
-    bNewProtocolList: TButton;
-    edNewProtocolListName: TEdit;
-    bDeleteProtocolList: TButton;
     panSingleProtocol: TPanel;
     Label18: TLabel;
     cbPulseProgram: TComboBox;
@@ -266,6 +260,14 @@ type
     rbICLAMP3: TRadioButton;
     ckNewFileOnRecord: TCheckBox;
     bFindCursors: TButton;
+    panProtocolList: TPanel;
+    Label17: TLabel;
+    cbProtocolList: TComboBox;
+    meProtocolList: TMemo;
+    bAddProtocolToList: TButton;
+    bNewProtocolList: TButton;
+    edNewProtocolListName: TEdit;
+    bDeleteProtocolList: TButton;
     procedure TimerTimer(Sender: TObject);
     procedure bRecordClick(Sender: TObject);
     procedure FormResize(Sender: TObject);
@@ -391,6 +393,7 @@ type
              ) : Boolean ;
     procedure DisplayClampMode ;
     procedure AddOLAWCursors ;
+    function SystemTimeToStr( TSys : TSystemTime ) : String ;
 
   public
     { Public declarations }
@@ -607,9 +610,16 @@ begin
 
      // Update list of protocol lists
      CreateProtocolListList( cbProtocolList ) ;
+
+        cbProtocolList.ItemIndex := cbProtocolList.Items.IndexOf(
+                                    WCPFile.ExtractFileNameOnly(WCPFile.Settings.ProtocolListFileName)) ;
+        outputdebugstring(pchar(format('cbProtocolList.ItemIndex=%d',[cbProtocolList.ItemIndex])));
+        LoadProtocolList ;
+        exit ;
+
      if (WCPFile.Settings.ProtocolListFileName = '') or
         ANSIContainsText(WCPFile.Settings.ProtocolListFileName,'\ .') then begin
-        cbProtocolList.ItemIndex := 0 ;
+ //       cbProtocolList.ItemIndex := 0 ;
         meProtocolList.Clear ;
         end
      else begin
@@ -743,6 +753,7 @@ procedure TRecordFrm.TimerTimer(Sender: TObject);
 var
    i,i0,i1 : integer ;
    Done : Boolean ;
+   CurrentSystemTime : TSystemTime ;
 begin
 
      if not TimerBusy then begin
@@ -798,11 +809,18 @@ begin
                if EndOfSweepCount >= 2 then EndOfSweep := True ;
 
                { Erase old display now that new sweep has started }
-               if (NextBlock >= (2*Main.SESLabIO.ADCNumChannels)) and NewSweep then begin
-                   // Get time of start of sweep
-                   RH.Time := GetTickCount*mStoSecs ;
-                   if WCPFile.RawFH.NumRecords <= 0 then begin
-                      WCPFile.RawFH.RecordingStartTime := Main.DateToStr(Now) ;
+               if (NextBlock >= (2*Main.SESLabIO.ADCNumChannels)) and NewSweep then
+                   begin
+
+                   // Get time of start of sweep (seconds from midnight)
+                   GetSystemTime( CurrentSystemTime ) ;
+                   RH.Time := ((CurrentSystemTime.wHour*60.0) + (CurrentSystemTime.wMinute)*60.0)
+                              + CurrentSystemTime.wSecond + (CurrentSystemTime.wMilliseconds*0.001) ;
+
+                   // Save in file header if this is the first
+                   if WCPFile.RawFH.NumRecords <= 0 then
+                      begin
+                      WCPFile.RawFH.RecordingStartTime := SystemTimeToStr(CurrentSystemTime) ;
                       WCPFile.RawFH.RecordingStartTimeSecs := RH.Time ;
                       end;
 
@@ -2683,19 +2701,17 @@ begin
 
      First := True ;
      cbList.Clear ;
-     cbList.items.add( ' ' ) ;
+ //    cbList.items.add( ' ' ) ;
      repeat
         { Find file }
         if First then
-           FileFound := FindFirst( WCPFile.Settings.VProtDirectory + '*.lst',
-                                   faAnyFile,
-                                   SearchRec )
+           FileFound := FindFirst( WCPFile.Settings.VProtDirectory + '*.lst',faAnyFile,SearchRec )
         else
            FileFound := FindNext( SearchRec ) ;
 
         { Add file name (no extension or path) to list }
         if FileFound = 0 then cbList.items.Add(WCPFile.ExtractFileNameOnly(SearchRec.Name))
-                        else FindClose(SearchRec.FindHandle) ;
+                         else FindClose(SearchRec.FindHandle) ;
         First := False ;
         Until FileFound <> 0 ;
 
@@ -2713,9 +2729,10 @@ begin
 
      Result := False ;
 
-     if (cbProtocolList.ItemIndex <= 0) or (cbProtocolList.Items.Count <= 0) then begin
+     if (cbProtocolList.ItemIndex < 0) or (cbProtocolList.Items.Count <= 0) then begin
         meProtocolList.Clear ;
         WCPFile.Settings.ProtocolListFileName := '' ;
+        bAddProtocolToList.Enabled := False ;
         Exit ;
         end ;
 
@@ -2724,8 +2741,12 @@ begin
         (WCPFile.Settings.ProtocolListFileName = ' ') then begin
         meProtocolList.Clear ;
         WCPFile.Settings.ProtocolListFileName := '' ;
+        bAddProtocolToList.Enabled := False ;
         Exit ;
         end ;
+
+     // Enable addition of protocols to list
+     bAddProtocolToList.Enabled := True ;
 
      WCPFile.Settings.ProtocolListFileName := WCPFile.Settings.VProtDirectory +
                                       ExtractFileName(ChangeFileExt(WCPFile.Settings.ProtocolListFileName,'.lst')) ;
@@ -2806,10 +2827,13 @@ begin
      OpenDialog.InitialDir := WCPFile.Settings.VProtDirectory ;
      SetCurrentDir(WCPFile.Settings.VProtDirectory);
      OpenDialog.Title := 'Add Stimulus Protocol to List' ;
-     if OpenDialog.execute then begin
+     if OpenDialog.execute then
+        begin
+        meProtocolList.Lines[meProtocolList.Lines.Count-1] := ChangeFileExt(ExtractFileName(OpenDialog.FileName),'') ;
         meProtocolList.Lines.Add('') ;
-        meProtocolList.Lines[meProtocolList.Lines.Count-2] :=
-           ChangeFileExt(ExtractFileName(OpenDialog.FileName),'') ;
+//        meProtocolList.Lines.Add(ChangeFileExt(ExtractFileName(OpenDialog.FileName),'')) ;
+//      meProtocolList.Lines[meProtocolList.Lines.Count-2] :=
+//         ChangeFileExt(ExtractFileName(OpenDialog.FileName),'') ;
         SaveProtocolList(cbProtocolList.Text) ;
         end ;
      end ;
@@ -2946,6 +2970,16 @@ begin
         end
 
    end;
+
+
+function TRecordFrm.SystemTimeToStr( TSys : TSystemTime ) : String ;
+// ---------------------------------
+// Return systemm time value as text
+// ---------------------------------
+begin
+  Result := format( '%d:%d:%d.%d',[TSys.wHour,TSys.wMinute,TSys.wSecond,TSys.wMilliseconds]) ;
+
+end;
 
 
 procedure TRecordFrm.FormCreate(Sender: TObject);
